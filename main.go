@@ -27,6 +27,11 @@ import (
 	pdf "gitlab.chenxk.com/test/parse_pdf"
 )
 
+const first_reg =`(^\d+(\.\d+)?\d$)|((\%$)|(\%\s$))|` + 
+`(^\-\d+(\.\d+)?\d$)|(^\d+\,\d+)|` + 
+`(^\-\d+(\.\d+)?\s+)|` +
+`(^\d+(\.\d+)?\s+)`
+
 type data struct {
 	Text string `json:"text,omitempty"`
 }
@@ -54,27 +59,64 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	divNodes := doc.Find("div.page").Nodes
-	log.Println(divNodes[0].Data)
-	// scanner := bufio.NewScanner(object)
-	// for scanner.Scan() {
-	// 	log.Println("len:", len(scanner.Text()))
-	// 	log.Println("value:", scanner.Text())
-	// }
+	// divNodes := doc.Find("div.page").Nodes
+	// log.Println(divNodes[0].Data)
+
 	// parseTextP()
+	// eachNodes(doc)
+	eachP(doc)
+}
+
+func eachP(doc *goquery.Document) {
+	// reg := `(^((\d)|(\-\d))$)|(^\d+\d+$)|(^\d+\.\d+$)|(^\-\d+$)|(\d+(\n+\d+)+$)|(^\d+\.\d+(\s+)(\n\d+\.\d+)+$)|` +
+	// 	   `(\%$)|` + `(^\d+\.\d+(\s+)(\n\d+\.\d+((\s+)\d+\.\d+$))+$)|` + `(\d+(\n+\/\d+)+$)|(^\/\d+$)|` +
+	// 	   `(^\-\d+(\n+((\d+)|(\-\d+)))+$)`
+	// reg := `^((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)))(|(\n((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%))))+)$`
+	singleWord := `((\d+)|(\-\d+)|(\/\d+))(|\,\d+)(|\.\d+)(|\%)`
+	reg := fmt.Sprintf(`^%s(|\s+(%s))(|(\n%s(|\s+(%s)))+)$`, singleWord, singleWord, singleWord, singleWord)
+
+	match := regexp.MustCompile(reg)
+
+	doc.Find("p").Each(func(i int, s *goquery.Selection) {
+		str := strings.TrimSpace(s.Text())
+		if match.MatchString(str) {
+			log.Println("true")
+			log.Println(s.Text())
+			log.Println("=====================")
+			s.Remove()
+		}
+	})
+
 	eachNodes(doc)
+	// doc.Find("p").Each(func(i int, s *goquery.Selection) {
+	// 	log.Println(s.Text())
+	// 	log.Println("===================================")
+	// })
 }
 
 func eachNodes(doc *goquery.Document) {
+	var strs string
 	doc.Find("div.page").Each(func(i int, s *goquery.Selection) {
 		str := s.Find("p").Text()
 
-		log.Println(str)
+		// log.Println("p:", str)
+		// log.Println("===============================")
+		strs += "\n\n" + str
 	})
+
+	localFile, err := os.Create("resource/out/merge.txt")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if _, err = io.Copy(localFile, strings.NewReader(strs)); err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func parseTextP() {
-	f, err := os.Open("resource/guoyuan.pdf")
+	f, err := os.Open("resource/pingan.pdf")
 	if err != nil {
 		log.Fatal(err)
 	}
