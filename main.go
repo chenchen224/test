@@ -42,7 +42,7 @@ type Response struct {
 var text string = "本报告版权属于安信证券股份有限公司。各项声明请参见报告尾页。（a+h）】。新能源运营板块推荐坐拥福建台海风资源，有望成长为国内海上风电龙头的【福能股份】，同时建议关注a股新能源运营龙头【三峡能源】。水电板块建议关注分红有承诺、集团机组陆续投产的【长江电力】以及分红比例大幅提升的【川投能源】。燃气板块推荐天然气一体化产业链稀缺标的【新奥股份】■风险提示：全社会用电量增长不及预期、煤价持续高位运行、电价调整不及预期、来水不及预期、新能源装机增速不及预期、天然气消费增速不及预期"
 
 func main() {
-	f, err := os.Open("resource/pingan.pdf")
+	f, err := os.Open("resource/huajin.pdf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,7 +64,8 @@ func main() {
 
 	// parseTextP()
 	// eachNodes(doc)
-	eachP(doc)
+	// eachP(doc)
+	eachDiv(doc)
 }
 
 func eachP(doc *goquery.Document) {
@@ -72,26 +73,66 @@ func eachP(doc *goquery.Document) {
 	// 	   `(\%$)|` + `(^\d+\.\d+(\s+)(\n\d+\.\d+((\s+)\d+\.\d+$))+$)|` + `(\d+(\n+\/\d+)+$)|(^\/\d+$)|` +
 	// 	   `(^\-\d+(\n+((\d+)|(\-\d+)))+$)`
 	// reg := `^((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)))(|(\n((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%))))+)$`
-	singleWord := `((\d+)|(\-\d+)|(\/\d+))(|\,\d+)(|\.\d+)(|\%)`
-	reg := fmt.Sprintf(`^%s(|\s+(%s))(|(\n%s(|\s+(%s)))+)$`, singleWord, singleWord, singleWord, singleWord)
+	// singleWord := `((\d+)|(\-\d+)|(\/\d+))(|\,\d+)(|\.\d+)(|\%)`
+	singleWord := `((\d+)|(\-\d+)|(\/\d+)|(\(\d+(\.\d+)\)))(|\,\d+)(|\.\d+)(|\%)(|\s+)(|\/+)`
+	reg := fmt.Sprintf(`^%s(|\s+(%s))+(|(\n%s(|\s+(%s))+)+)$`, singleWord, singleWord, singleWord, singleWord)
 
 	match := regexp.MustCompile(reg)
 
+	// regPicture := "^\u56fe(|\\s+)\\d+\uff1a.*[^\\d+]$"
+	// regForm := "^\u8868(|\\s+)\\d+\uff1a.*[^\\d+]$"
+
+	regPictureOrForm := "^(\u8868|\u56fe|\u56fe\u8868)(|\\s+)\\d+\uff1a.*[^\\d+]$"
+	// regOfTitle := "^([[:digit:]])(|\\.|\u3001)(|\\s+).*[^\\d+]$"
+
 	doc.Find("p").Each(func(i int, s *goquery.Selection) {
 		str := strings.TrimSpace(s.Text())
+
+		// 去除单行只有数字的段落
 		if match.MatchString(str) {
-			log.Println("true")
-			log.Println(s.Text())
-			log.Println("=====================")
 			s.Remove()
 		}
+
+		// 去除包含“资料来源”段落
+		if strings.Contains(str, "资料来源") {
+			s.Remove()
+		}
+
+		// 去除图表标签段落
+		flagPicture, err := regexp.MatchString(regPictureOrForm, str)
+		if err  != nil {
+			panic(err)
+		}
+		if flagPicture {
+			s.Remove()
+		}
+
+		// 去除标题
+		// flagTitle, err := regexp.MatchString(regOfTitle, str)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// if flagTitle {
+		// 	log.Println(str)
+		// 	s.Remove()
+		// }
 	})
 
 	eachNodes(doc)
-	// doc.Find("p").Each(func(i int, s *goquery.Selection) {
-	// 	log.Println(s.Text())
-	// 	log.Println("===================================")
-	// })
+}
+
+func eachDiv(doc *goquery.Document) {
+	size := len(doc.Find("div.page").Nodes)
+	doc.Find("div.page").Each(func(i int, s *goquery.Selection) {
+		
+		s.Find("p").Each(func(i int, s *goquery.Selection) {
+			if i == 4 {
+				log.Println(s.Text())
+				log.Println("================================")
+			}
+		})
+	})
+	log.Println("size:", size)
 }
 
 func eachNodes(doc *goquery.Document) {
@@ -104,7 +145,7 @@ func eachNodes(doc *goquery.Document) {
 		strs += "\n\n" + str
 	})
 
-	localFile, err := os.Create("resource/out/merge.txt")
+	localFile, err := os.Create("resource/out/hexin.txt")
 	if err != nil {
 		fmt.Println(err)
 		return
