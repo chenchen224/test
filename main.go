@@ -42,7 +42,7 @@ type Response struct {
 var text string = "本报告版权属于安信证券股份有限公司。各项声明请参见报告尾页。（a+h）】。新能源运营板块推荐坐拥福建台海风资源，有望成长为国内海上风电龙头的【福能股份】，同时建议关注a股新能源运营龙头【三峡能源】。水电板块建议关注分红有承诺、集团机组陆续投产的【长江电力】以及分红比例大幅提升的【川投能源】。燃气板块推荐天然气一体化产业链稀缺标的【新奥股份】■风险提示：全社会用电量增长不及预期、煤价持续高位运行、电价调整不及预期、来水不及预期、新能源装机增速不及预期、天然气消费增速不及预期"
 
 func main() {
-	f, err := os.Open("resource/huajin.pdf")
+	f, err := os.Open("resource/xinda.pdf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,8 +64,30 @@ func main() {
 
 	// parseTextP()
 	// eachNodes(doc)
-	// eachP(doc)
-	eachDiv(doc)
+	eachP(doc)
+	// eachDiv(doc)
+}
+
+func eachNodes(doc *goquery.Document) {
+	var strs string
+	doc.Find("div.page").Each(func(i int, s *goquery.Selection) {
+		str := strings.ReplaceAll(s.Find("p").Text(), " ", "")
+		// str = strings.ReplaceAll(str, "\n", "")
+
+		// log.Println("p:", str)
+		// log.Println("===============================")
+		strs += "\n\n" + str
+	})
+
+	localFile, err := os.Create("resource/out/xinda.txt")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if _, err = io.Copy(localFile, strings.NewReader(strs)); err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func eachP(doc *goquery.Document) {
@@ -74,51 +96,77 @@ func eachP(doc *goquery.Document) {
 	// 	   `(^\-\d+(\n+((\d+)|(\-\d+)))+$)`
 	// reg := `^((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)))(|(\n((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%)(|\s+(((\d+)|(\-\d+)|(\/\d+))(|\.\d+)(|\%))))+)$`
 	// singleWord := `((\d+)|(\-\d+)|(\/\d+))(|\,\d+)(|\.\d+)(|\%)`
-	singleWord := `((\d+)|(\-\d+)|(\/\d+)|(\(\d+(\.\d+)\)))(|\,\d+)(|\.\d+)(|\%)(|\s+)(|\/+)`
-	reg := fmt.Sprintf(`^%s(|\s+(%s))+(|(\n%s(|\s+(%s))+)+)$`, singleWord, singleWord, singleWord, singleWord)
 
+	singleWord := `((\d+)|(\-\d+)|(\/\d+)|(\(\d+(|\.\d+)\)))(|\,\d+)(|\.\d+)(|\d+\%|\%)(|\s+)(|\/+)`
+	dateWord := "[\u5e74\u6708\u65e5]"
+	reg := fmt.Sprintf(`^%s(|%s|\s+(%s))+(|(\n(|%s|%s(|\s+(%s)))+)+)$`, singleWord, singleWord, singleWord, dateWord, singleWord, singleWord)
+	// singleWord := "(\\d+|\\-d+\\/d+)(|\\.)\\d+(|\\%|\u5e74|\u6708|\u65e5)"
+	// reg := fmt.Sprintf("^(%s)[%s]+(|%s)$", singleWord, singleWord, singleWord)
 	match := regexp.MustCompile(reg)
 
-	// regPicture := "^\u56fe(|\\s+)\\d+\uff1a.*[^\\d+]$"
-	// regForm := "^\u8868(|\\s+)\\d+\uff1a.*[^\\d+]$"
+	regPictureOrForm := regexp.MustCompile("^(\u8868|\u56fe|\u56fe\u8868)(|\\s+)(|\\d+)[\uff1a|\\:].*[\\D+]$")
 
-	regPictureOrForm := "^(\u8868|\u56fe|\u56fe\u8868)(|\\s+)\\d+\uff1a.*[^\\d+]$"
-	// regOfTitle := "^([[:digit:]])(|\\.|\u3001)(|\\s+).*[^\\d+]$"
+	chinNumReg := "(\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d|\u4e03|\u516b|\u4e5d|\u5341)+"
+	chinPuctuation := "\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300b"
+	regOfTitle1Pattern := regexp.MustCompile(fmt.Sprintf("^([[:digit:]]|%s)+[\\.\u3001](|\\s+).*[\\D+]$", chinNumReg))
+	regOfTitle2Pattern := regexp.MustCompile(fmt.Sprintf("^([[:digit:]]|%s)+[\\.\u3001](|\\s+).*[^%s]$", chinNumReg, chinPuctuation))
+
+	lengthPattern := regexp.MustCompile("[^\u3002]$")
+
+	linkPattern := regexp.MustCompile(`(http|ftp|https)\:\/\/(www|WWW|[A-Za-z]+)\.[A-Za-z]+\.[A-Za-z]+(|.*)$`)
+	tablePattern := regexp.MustCompile(`^(\[Table)\_.*`)
+	emailPattern := regexp.MustCompile(`\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`)
 
 	doc.Find("p").Each(func(i int, s *goquery.Selection) {
-		str := strings.TrimSpace(s.Text())
+		str := strings.ReplaceAll(s.Text(), " ", "")
+		str = strings.ReplaceAll(str, "\n", "")
 
-		// 去除单行只有数字的段落
-		if match.MatchString(str) {
+		if len([]rune(str)) <= 20 && lengthPattern.MatchString(str){
+			s.Remove()
+		} else if match.MatchString(str) {
+			// 去除单行只有数字的段落
+			// log.Println(str)
+			s.Remove()
+		} else if strings.Contains(str, "资料来源") {
+			// 去除包含“资料来源”段落
+			s.Remove()
+		} else if regPictureOrForm.MatchString(str) {
+			// 去除图表标签段落
+			s.Remove()
+		} else if regOfTitle1Pattern.MatchString(str) && regOfTitle2Pattern.MatchString(str) {
+			// TODO:会删除少量有语意的句子
+			// 去除标题
+			// log.Println(str)
+			s.Remove()
+		} else if linkPattern.MatchString(str) {
+			// 去除链接
+			s.Remove()
+		} else if tablePattern.MatchString(str) {
+			// TODO:会删除少量有语意的句子
+			// log.Println(str)
+			s.Remove()
+		} else if emailPattern.MatchString(str) {
+			// 去除油箱通讯方式
+			log.Println(str)
+			s.Remove()
+		} else if isItHeaderOrFooter(str) {
+			// 去除页眉，页尾
+			log.Println(str)
 			s.Remove()
 		}
-
-		// 去除包含“资料来源”段落
-		if strings.Contains(str, "资料来源") {
-			s.Remove()
-		}
-
-		// 去除图表标签段落
-		flagPicture, err := regexp.MatchString(regPictureOrForm, str)
-		if err  != nil {
-			panic(err)
-		}
-		if flagPicture {
-			s.Remove()
-		}
-
-		// 去除标题
-		// flagTitle, err := regexp.MatchString(regOfTitle, str)
-		// if err != nil {
-		// 	panic(err)
-		// }
-		// if flagTitle {
-		// 	log.Println(str)
-		// 	s.Remove()
-		// }
 	})
 
 	eachNodes(doc)
+}
+
+func isItHeaderOrFooter(str string) bool {
+	words := []string{"敬请参阅", "务必阅读", "各项声明", "特别声明", "免责声明", "免责条款", "执业证书编号", "联系邮箱"}
+	for _, v := range words {
+		if strings.Contains(str, v) {
+			return true
+		}
+	}
+	return false
 }
 
 func eachDiv(doc *goquery.Document) {
@@ -135,29 +183,8 @@ func eachDiv(doc *goquery.Document) {
 	log.Println("size:", size)
 }
 
-func eachNodes(doc *goquery.Document) {
-	var strs string
-	doc.Find("div.page").Each(func(i int, s *goquery.Selection) {
-		str := s.Find("p").Text()
-
-		// log.Println("p:", str)
-		// log.Println("===============================")
-		strs += "\n\n" + str
-	})
-
-	localFile, err := os.Create("resource/out/hexin.txt")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	if _, err = io.Copy(localFile, strings.NewReader(strs)); err != nil {
-		fmt.Println(err)
-		return
-	}
-}
-
 func parseTextP() {
-	f, err := os.Open("resource/pingan.pdf")
+	f, err := os.Open("resource/xinda.pdf")
 	if err != nil {
 		log.Fatal(err)
 	}

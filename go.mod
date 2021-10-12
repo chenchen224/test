@@ -11,6 +11,7 @@ require (
 	github.com/elastic/go-elasticsearch/v7 v7.15.0
 	github.com/go-ini/ini v1.63.2 // indirect
 	github.com/google/go-tika v0.2.0
+	github.com/jdkato/regexp v0.1.0 // indirect
 	github.com/ledongthuc/pdf v0.0.0-20210621053716-e28cb8259002
 	github.com/minio/minio-go v6.0.14+incompatible // indirect
 	github.com/minio/minio-go/v7 v7.0.14
@@ -19,6 +20,7 @@ require (
 	github.com/spf13/viper v1.9.0
 	github.com/tealeg/xlsx v1.0.5
 	github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8 // indirect
+	github.com/unidoc/unipdf/v3 v3.29.0
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	github.com/yob/pdfreader v0.0.0-20121031175755-774b0b7a501c
 	gitlab.mvalley.com/datapack/cain v0.2.30-dev
